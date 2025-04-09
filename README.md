@@ -55,7 +55,7 @@ Il consiste en une application interactive développée avec **R Shiny**, permet
 
 - **Ahmadou NIASS**  
   [GitHub → ahmadouniass](https://github.com/ahmadouniass)  
-  _Développeur de la section exploration interactive_  
+  _Responsable du développement du frontend et de l’exploration interactive_  
 
 - **Fogwoung Djoufack Sarah-Laure**  
   [GitHub → Sarahlaure](https://github.com/Sarahlaure)  
