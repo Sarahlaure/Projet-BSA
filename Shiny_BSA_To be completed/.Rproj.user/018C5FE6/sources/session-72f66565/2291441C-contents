@@ -1,0 +1,138 @@
+library(shiny)
+library(leaflet)
+library(dplyr)
+library(DT)
+library(shinydashboard)
+library(readxl)
+
+# Chargement des données
+data_events <- read_excel("www/fusionacled.xlsx") %>%
+  mutate(
+    date_start = as.Date(date_start, format = "%m/%d/%Y"),
+    latitude = as.numeric(latitude),
+    longitude = as.numeric(longitude),
+    best_est = as.numeric(best_est),
+    deaths_civilians = as.numeric(deaths_civilians),
+    type_of_violence = as.numeric(type_of_violence)
+  )
+
+
+server <- function(input, output, session) {
+  
+  # 📌 Mise à jour dynamique des filtres (pays, dyades)
+  observe({
+    updateSelectInput(session, "pays",
+                      choices = sort(unique(data_events$country)),
+                      selected = NULL)
+    
+    updateSelectInput(session, "dyade",
+                      choices = sort(unique(data_events$dyad_name)),
+                      selected = NULL)
+  })
+  
+  # 🔎 Données filtrées
+  data_filtrée <- reactive({
+    req(input$pays, input$violence_type, input$dates)
+    
+    df <- data_events %>%
+      filter(
+        country %in% input$pays,
+        type_of_violence %in% input$violence_type,
+        best_est >= input$mort_min,
+        date_start >= input$dates[1],
+        date_start <= input$dates[2]
+      )
+    
+    if (!is.null(input$dyade) && length(input$dyade) > 0) {
+      df <- df %>% filter(dyad_name %in% input$dyade)
+    }
+    
+    return(df)
+  })
+  
+  # 🗺️ Carte interactive
+  output$map_events <- renderLeaflet({
+    leaflet() %>%
+      addTiles() %>%
+      setView(lng = 0, lat = 10, zoom = 4) %>%
+      addProviderTiles(providers$CartoDB.Positron)
+  })
+  
+  observe({
+    df <- data_filtrée()
+    
+    leafletProxy("map_events", data = df) %>%
+      clearMarkers() %>%
+      addCircleMarkers(
+        lng = ~longitude,
+        lat = ~latitude,
+        radius = ~sqrt(best_est + 1),
+        color = "#e74c3c",
+        fillOpacity = 0.5,
+        stroke = FALSE,
+        popup = ~paste0(
+          "<b>Conflit :</b> ", conflict_name, "<br/>",
+          "<b>Date :</b> ", date_start, "<br/>",
+          "<b>Type :</b> ", type_of_violence, "<br/>",
+          "<b>Dyade :</b> ", dyad_name, "<br/>",
+          "<b>Morts estimées :</b> ", best_est
+        )
+      )
+    if (nrow(df) > 0) {
+      bounds <- df %>%
+        summarise(
+          lat_min = min(latitude, na.rm = TRUE),
+          lat_max = max(latitude, na.rm = TRUE),
+          lng_min = min(longitude, na.rm = TRUE),
+          lng_max = max(longitude, na.rm = TRUE)
+        )
+      
+      leafletProxy("map_events") %>%
+        fitBounds(
+          lng1 = bounds$lng_min,
+          lat1 = bounds$lat_min,
+          lng2 = bounds$lng_max,
+          lat2 = bounds$lat_max
+        )
+    }
+    
+  })
+  
+  
+  # 📊 Indicateur 1 : Nombre d’événements
+  output$box_total_events <- renderText({
+    format(nrow(data_filtrée()), big.mark = " ")
+  })
+  
+  output$box_total_deaths <- renderText({
+    total <- sum(data_filtrée()$best_est, na.rm = TRUE)
+    format(total, big.mark = " ")
+  })
+  
+  output$box_prop_civilians <- renderText({
+    df <- data_filtrée()
+    prop <- sum(df$deaths_civilians, na.rm = TRUE) / sum(df$best_est, na.rm = TRUE)
+    pourcent <- ifelse(is.nan(prop), 0, round(100 * prop, 1))
+    paste0(pourcent, " %")
+  })
+  
+  # 📋 Tableau des événements
+  output$table_events <- renderDT({
+    df <- data_filtrée() %>%
+      select(date_start, country, dyad_name, region, best_est, 
+             deaths_a, deaths_b, deaths_civilians, type_of_violence)
+    
+    datatable(df, options = list(pageLength = 10), rownames = FALSE)
+  })
+  
+  # ⬇️ Téléchargement des données
+  output$downloadData <- downloadHandler(
+    filename = function() {
+      paste0("evenements_filtrés_", Sys.Date(), ".csv")
+    },
+    content = function(file) {
+      write.csv(data_filtrée(), file, row.names = FALSE)
+    }
+  )
+  
+}

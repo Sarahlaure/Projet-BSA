@@ -1,0 +1,4 @@
+# pages/page5_docs.R
+page5_docs_ui <- fluidPage(
+  h2("Documentation & crédits (à venir)")
+)
