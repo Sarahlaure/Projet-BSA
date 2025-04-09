@@ -1,4 +1,4 @@
-# 🔥 Application Shiny – Visualisation des Conflits dans l’UEMOA _(Projet BSA)_
+# Application Shiny – Visualisation des Conflits dans l’UEMOA _(Projet BSA)_
 
 Ce projet a été réalisé dans le cadre de l’hackathon organisé par le **Bureau des Statistiques** de l’[ENSAE Dakar](https://ensae.sn).  
 Il consiste en une application interactive développée avec **R Shiny**, permettant d'explorer et d’analyser les conflits armés dans l’espace UEMOA à partir des données géoréférencées du **UCDP GED**.
