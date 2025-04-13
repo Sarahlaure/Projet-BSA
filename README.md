@@ -2,6 +2,8 @@
 ### _Un projet pour une meilleure compréhension des dynamiques sécuritaires en Afrique de l’Ouest, notamment au sein de l'UEMOA_
 #### Hackathon du Bureau des Statistiques – ENSAE Dakar
 
+👉Lien vers l'application : [Dashboard conflits UEMOA](https://ahmedniass.shinyapps.io/Dashboard_UEMOA_securite/)
+
 ---  
 
 ## 🧭 **Contexte & Enjeux**  
@@ -62,7 +64,7 @@ Dans ce contexte, plusieurs questions clés se posent :
 
 ---
 
-##💡 **Justification du projet**
+## 💡 **Justification du projet**
 
 > “On ne peut pas résoudre un problème qu’on ne comprend pas.”
 
