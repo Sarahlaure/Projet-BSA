@@ -62,7 +62,7 @@ Dans ce contexte, plusieurs questions clés se posent :
 
 ---
 
-💡 **Pourquoi ce projet est utile**
+##💡 **Justification du projet**
 
 > “On ne peut pas résoudre un problème qu’on ne comprend pas.”
 
