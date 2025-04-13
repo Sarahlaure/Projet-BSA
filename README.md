@@ -4,7 +4,7 @@
 
 ---  
 
-🧭 **Contexte & Enjeux**  
+## 🧭 **Contexte & Enjeux**  
 Depuis les années 1990, l’espace UEMOA est confronté à une instabilité croissante : rébellions armées, coups d’État, terrorisme…  
 L’Union, initialement fondée pour renforcer l’intégration économique, fait désormais face à des défis sécuritaires majeurs qui mettent en péril sa cohésion.
 
