@@ -14,13 +14,12 @@ page3_stats_ui <- fluidPage(
       ),
       column(6,
              tags$label(icon("calendar-alt", lib = "font-awesome"), " Période analysée", style = "font-weight: bold;"),
-             dateRangeInput("filtre_date", NULL,
-                            start = "2015-01-01", end = "2024-12-31",
-                            format = "yyyy-mm-dd", separator = " à ")
+             sliderInput("filtre_periode", "📅 Période (année) :", min = 1997, max = 2024,
+                         value = c(2010, 2024), step = 1, sep = "")
+             
       )
     )
-  )
-  ,
+  ),
   tags$hr(),
   div(class = "container-custom",
       
@@ -34,8 +33,6 @@ page3_stats_ui <- fluidPage(
       tags$hr(),
       
       # 🔹 Bloc 2 – Répartition par type de violence
-
-      
       tags$h3("💥 Répartition par type de violence"),
       tags$p(
         "Cette section analyse les différentes formes de violences (conflits entre États, violences non étatiques, violences contre civils). 

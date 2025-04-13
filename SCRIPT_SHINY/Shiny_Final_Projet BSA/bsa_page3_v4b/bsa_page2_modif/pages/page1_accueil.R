@@ -167,7 +167,7 @@ page1_accueil_ui <- fluidPage(
           tags$img(src = "uemoa_map_logo.png", style = "height: 80px; margin-left: 30px;"),
           div(class = "title-box",
               tags$h1("Observatoire Stratégique UEMOA", style = "margin: 0; letter-spacing: 1px;"),
-              tags$h3("Cartographie dynamique des conflits", style = "margin: 10px 0; font-weight: 300;")
+              tags$h3("Cartographie dynamique des violences politiques", style = "margin: 10px 0; font-weight: 300;")
           ),
           tags$img(src = "uemoa_map_logo.png", style = "height: 80px; margin-right: 30px; opacity: 0.9;")
       ),
@@ -179,7 +179,7 @@ page1_accueil_ui <- fluidPage(
                    div(class = "stat-content",
                        icon("chart-line", class = "stat-icon"),
                        div(class = "emphasis-number", "75x"),
-                       div(class = "stat-label", "Augmentation des conflits"),
+                       div(class = "stat-label", "Augmentation des violences politiques"),
                        div(class = "stat-subtext", "Depuis 1989")
                    )
                )
@@ -189,7 +189,7 @@ page1_accueil_ui <- fluidPage(
                    div(class = "stat-content",
                        icon("fire", class = "stat-icon"),
                        div(class = "emphasis-number", "900+"),
-                       div(class = "stat-label", "Conflits en 2023"),
+                       div(class = "stat-label", "Violences politiques en 2023"),
                        div(class = "stat-subtext", "Nouveau record")
                    )
                )
@@ -229,7 +229,7 @@ page1_accueil_ui <- fluidPage(
                    div(class = "objective-grid",
                        div(class = "objective-card",
                            tags$h4(icon("crosshairs"), " Statistiques descriptives"),
-                           tags$p("Analyse visuelle de l'évolution des conflits")
+                           tags$p("Analyse visuelle de l'évolution des violences politiques")
                        ),
                        div(class = "objective-card",
                            tags$h4(icon("globe-africa"), " Comparaison Régionale"),

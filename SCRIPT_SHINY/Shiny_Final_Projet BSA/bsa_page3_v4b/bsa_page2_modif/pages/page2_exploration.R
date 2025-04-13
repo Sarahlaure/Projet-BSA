@@ -20,11 +20,11 @@ page2_exploration_ui <- fluidPage(
                                width = "100%")
             ),
             column(6,
-                   tags$label("🗓️ Période analysée"),
-                   dateRangeInput("dates", NULL, 
-                                  start = "2010-01-01", end = Sys.Date(),
-                                  format = "yyyy-mm-dd", separator = " à ",
-                                  width = "100%")
+                   tags$label("📅 Période (années)"),
+                   sliderInput("annees", NULL,
+                               min = 2000, max = 2025,
+                               value = c(2010, 2025), step = 1, sep = "",
+                               width = "100%")
             )
           ),
           
@@ -65,8 +65,7 @@ page2_exploration_ui <- fluidPage(
         )
       ),
       
-      tags$hr()
-      ,
+      tags$hr(),
       
       # 🔹 Bloc 3 – Indicateurs clés
       tags$h3("Indicateurs clés"),

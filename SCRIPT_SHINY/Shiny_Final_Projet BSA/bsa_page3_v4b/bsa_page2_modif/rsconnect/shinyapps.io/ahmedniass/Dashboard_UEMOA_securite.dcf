@@ -1,0 +1,12 @@
+name: Dashboard_UEMOA_securite
+title: Dashboard_UEMOA_securite
+username: ahmedniass
+account: ahmedniass
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 14509337
+bundleId: 10109062
+url: https://ahmedniass.shinyapps.io/Dashboard_UEMOA_securite/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

@@ -36,47 +36,42 @@ data_events <- read_excel("www/fusionacled.xlsx") %>%
 
 server <- function(input, output, session) {
   
-  data_page3 <- reactive({
-    req(input$filtre_date)
-    
-    df <- data_events
-    
-    # Filtrage par pays si sélectionné
-    if (!is.null(input$filtre_pays) && length(input$filtre_pays) > 0) {
-      df <- df %>% filter(country %in% input$filtre_pays)
-    }
-    
-    # Filtrage par date
-    df <- df %>% filter(date_start >= input$filtre_date[1],
-                        date_start <= input$filtre_date[2])
-    
-    validate(need(nrow(df) > 0, "Aucune donnée disponible pour les filtres sélectionnés."))
-    return(df)
-  })
-  
-  
-  # 📌 Mise à jour dynamique des filtres (pays, dyades)
+  # 🔄 Mise à jour dynamique des sélections pour les pays et dyades
   observe({
     updateSelectInput(session, "pays",
                       choices = sort(unique(data_events$country)),
-                      selected = NULL)
+                      selected = unique(data_events$country)[1])
     
     updateSelectInput(session, "dyade",
                       choices = sort(unique(data_events$dyad_name)),
                       selected = NULL)
   })
   
-  # 🔎 Données filtrées
+  # 🔄 Mise à jour automatique des années disponibles pour le slider
+  observe({
+    annees_dispo <- lubridate::year(data_events$date_start)
+    min_an <- min(annees_dispo, na.rm = TRUE)
+    max_an <- max(annees_dispo, na.rm = TRUE)
+    
+    updateSliderInput(session, "annees",
+                      min = min_an,
+                      max = max_an,
+                      value = c(min_an, max_an),
+                      step = 1)
+  })
+  
+  # 🔎 Données filtrées page 2
   data_filtrée <- reactive({
-    req(input$pays, input$violence_type, input$dates)
+    req(input$pays, input$violence_type, input$annees)
     
     df <- data_events %>%
+      mutate(annee = lubridate::year(date_start)) %>%
       filter(
         country %in% input$pays,
         type_of_violence %in% input$violence_type,
         best_est >= input$mort_min,
-        date_start >= input$dates[1],
-        date_start <= input$dates[2]
+        annee >= input$annees[1],
+        annee <= input$annees[2]
       )
     
     if (!is.null(input$dyade) && length(input$dyade) > 0) {
@@ -85,7 +80,6 @@ server <- function(input, output, session) {
     
     return(df)
   })
-  
   
   # 🗺️ Carte interactive
   output$map_events <- renderLeaflet({
@@ -115,6 +109,8 @@ server <- function(input, output, session) {
           "<b>Morts estimées :</b> ", best_est
         )
       )
+    
+    # Recentrer la carte
     if (nrow(df) > 0) {
       bounds <- df %>%
         summarise(
@@ -132,11 +128,9 @@ server <- function(input, output, session) {
           lat2 = bounds$lat_max
         )
     }
-    
   })
   
-  
-  # 📊 Indicateur 1 : Nombre d’événements
+  # 📌 Indicateurs
   output$box_total_events <- renderText({
     format(nrow(data_filtrée()), big.mark = " ")
   })
@@ -153,7 +147,7 @@ server <- function(input, output, session) {
     paste0(pourcent, " %")
   })
   
-  # 📋 Tableau des événements
+  # 📋 Tableau
   output$table_events <- renderDT({
     df <- data_filtrée() %>%
       select(date_start, country, dyad_name, region, best_est, 
@@ -162,7 +156,7 @@ server <- function(input, output, session) {
     datatable(df, options = list(pageLength = 10), rownames = FALSE)
   })
   
-  # ⬇️ Téléchargement des données
+  # ⬇️ Téléchargement des données filtrées
   output$downloadData <- downloadHandler(
     filename = function() {
       paste0("evenements_filtrés_", Sys.Date(), ".csv")
@@ -348,7 +342,6 @@ output$bloc_pays_adaptatif <- renderUI({
     )
   }
 })
-
 output$contexte_pays_unique <- renderText({
   country <- input$filtre_pays
   if (is.null(country) || length(country) != 1) return(NULL)
@@ -407,288 +400,24 @@ output$contexte_pays_unique <- renderText({
   
   contextes[[country]] %||% "Aucun contexte spécifique disponible pour ce pays."
 })
-output$plot_events_country <- renderPlotly({
-  df <- data_page3() %>% count(country, name = "events")
-  p <- ggplot(df, aes(x = reorder(country, -events), y = events)) +
-    geom_bar(stat = "identity", fill = "#3498db") +
-    labs(x = "Pays", y = "Nombre d'événements") +
-    theme_minimal()
-  ggplotly(p)
-})
-
-output$plot_deaths_country <- renderPlotly({
-  df <- data_page3() %>%
-    group_by(country) %>%
-    summarise(deaths = sum(best_est, na.rm = TRUE))
-  p <- ggplot(df, aes(x = reorder(country, -deaths), y = deaths)) +
-    geom_bar(stat = "identity", fill = "#e74c3c") +
-    labs(x = "Pays", y = "Morts estimés") +
-    theme_minimal()
-  ggplotly(p)
-})
-
-
-# 🔹 Bloc 2 – Type de violence et dyades
-output$plot_violence_pie <- renderPlotly({
-  df <- data_page3() %>%
-    count(type_of_violence) %>%
-    mutate(type_label = violence_labels[as.character(type_of_violence)])
-  plot_ly(df, labels = ~type_label, values = ~n, type = "pie") %>%
-    layout(title = "Répartition des types de violence")
-})
-
-output$plot_violence_dyade <- renderPlotly({
-  df <- data_page3() %>%
-    group_by(type_of_violence, dyad_name) %>%
-    tally() %>%
-    mutate(type_label = violence_labels[as.character(type_of_violence)]) %>%
-    arrange(desc(n)) %>%
-    slice_head(n = 10)
-  ggplotly(
-    ggplot(df, aes(x = reorder(dyad_name, -n), y = n, fill = type_label)) +
-      geom_bar(stat = "identity") +
-      coord_flip() +
-      labs(x = "Dyade", y = "Nombre d'événements", fill = "Type de violence") +
-      theme_minimal()
-  )
-})
-
-output$comment_events_country <- renderText({
-  df <- data_page3() %>% count(country, name = "events") %>% arrange(desc(events))
-  total <- sum(df$events)
-  top <- df[1, ]
-  top3 <- head(df, 3)
-  paste0("🔎 Le pays le plus affecté est ", top$country, ", avec ", top$events,
-         " événements (", round(100 * top$events / total, 1), "% du total). ",
-         "Les 3 premiers pays (", paste(top3$country, collapse = ", "), 
-         ") concentrent ", round(100 * sum(top3$events) / total, 1), "% des violences.")
-})
-
-output$comment_deaths_country <- renderText({
-  df <- data_page3() %>% group_by(country) %>%
-    summarise(deaths = sum(best_est, na.rm = TRUE)) %>% arrange(desc(deaths))
-  total <- sum(df$deaths)
-  top <- df[1, ]
-  paste0("💀 ", top$country, " enregistre le plus de morts estimées : ", top$deaths,
-         " décès (", round(100 * top$deaths / total, 1), "% du total régional).")
-})
-output$comment_violence_type <- renderText({
-  df <- data_page3() %>% count(type_of_violence)
-  total <- sum(df$n)
-  top <- df %>% arrange(desc(n)) %>% slice(1)
-  paste0("📊 Le type de violence dominant est le type ", top$type_of_violence,
-         " avec ", top$n, " cas, soit ", round(100 * top$n / total, 1), "% des événements recensés.")
-})
-
-output$comment_violence_dyade <- renderText({
-  df <- data_page3() %>% group_by(dyad_name) %>%
-    tally() %>% arrange(desc(n)) %>% slice(1:3)
-  paste0("🤝 La dyade la plus active est « ", df$dyad_name[1], " » avec ", df$n[1], " événements. ",
-         "Les 3 dyades principales représentent ", sum(df$n), " cas cumulés.")
-})
-
-# 🔹 Bloc 3 – Évolution temporelle
-output$plot_timeline_events <- renderPlotly({
-  df <- data_page3() %>%
-    mutate(month = format(date_start, "%Y-%m")) %>%
-    count(month)
+# ⚠️ Place cette fonction ici
+data_page3 <- reactive({
+  req(input$filtre_pays, input$filtre_periode)
   
-  p <- ggplot(df, aes(x = as.Date(paste0(month, "-01")), y = n)) +
-    geom_line(color = "#2c3e50") +
-    scale_x_date(date_labels = "%b %Y", date_breaks = "3 months") +  # ✅ espacement clair
-    labs(x = "Mois", y = "Nombre d'événements") +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 9))
+  min_year <- input$filtre_periode[1]
+  max_year <- input$filtre_periode[2]
   
-  ggplotly(p)
-})
-
-
-output$plot_timeline_deaths <- renderPlotly({
-  df <- data_page3() %>%
-    mutate(month = format(date_start, "%Y-%m")) %>%
-    group_by(month) %>%
-    summarise(deaths = sum(best_est, na.rm = TRUE))
-  
-  p <- ggplot(df, aes(x = as.Date(paste0(month, "-01")), y = deaths)) +
-    geom_line(color = "#c0392b") +
-    scale_x_date(date_labels = "%b %Y", date_breaks = "3 months") +
-    labs(x = "Mois", y = "Morts estimés") +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 9))
-  
-  ggplotly(p)
-})
-
-
-output$comment_timeline_events <- renderText({
-  df <- data_page3() %>%
-    mutate(month = format(date_start, "%Y-%m")) %>%
-    count(month) %>% arrange(desc(n))
-  paste0("📈 Le pic d’événements a été enregistré en ", df$month[1], " avec ", df$n[1], " événements.")
-})
-
-output$comment_timeline_deaths <- renderText({
-  df <- data_page3() %>%
-    mutate(month = format(date_start, "%Y-%m")) %>%
-    group_by(month) %>% summarise(deaths = sum(best_est, na.rm = TRUE)) %>%
-    arrange(desc(deaths))
-  paste0("📉 Le mois le plus meurtrier est ", df$month[1], " avec ", df$deaths[1], " morts estimées.")
-})
-
-# 🔹 Bloc 4 – Focus sur les civils
-output$map_civilians <- renderLeaflet({
-  df <- data_page3() %>% filter(type_of_violence == 3, !is.na(latitude), !is.na(longitude))
-  leaflet(df) %>%
-    addProviderTiles("CartoDB.Positron") %>%
-    addCircleMarkers(
-      lng = ~longitude,
-      lat = ~latitude,
-      radius = ~sqrt(deaths_civilians + 1),
-      color = "#e67e22",
-      fillOpacity = 0.6,
-      popup = ~paste0("<b>Dyade :</b> ", dyad_name,
-                      "<br/><b>Date :</b> ", date_start,
-                      "<br/><b>Morts civils :</b> ", deaths_civilians)
+  df <- data_events %>%
+    mutate(annee = lubridate::year(date_start)) %>%
+    filter(
+      country %in% input$filtre_pays,
+      annee >= min_year,
+      annee <= max_year
     )
-})
-
-# 🧍‍♂️ Courbe évolution morts civils estimés
-output$plot_civilians_timeline <- renderPlotly({
-  df <- data_page3() %>%
-    filter(type_of_violence == 3) %>%
-    mutate(month = format(date_start, "%Y-%m")) %>%
-    group_by(month) %>%
-    summarise(civ_deaths = sum(deaths_civilians, na.rm = TRUE), .groups = "drop")
   
-  p <- ggplot(df, aes(x = as.Date(paste0(month, "-01")), y = civ_deaths)) +
-    geom_line(color = "#f39c12") +
-    scale_x_date(date_labels = "%b %Y", date_breaks = "3 months") +
-    labs(x = "Mois", y = "Morts civils estimés") +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 9))
+  validate(need(nrow(df) > 0, "❌ Aucune donnée disponible pour les filtres sélectionnés."))
   
-  ggplotly(p)
-})
-
-output$comment_map_civilians <- renderText({
-  df <- data_page3() %>% filter(type_of_violence == 3)
-  top <- df %>% group_by(country) %>%
-    summarise(civ_deaths = sum(deaths_civilians, na.rm = TRUE)) %>%
-    arrange(desc(civ_deaths)) %>% slice(1)
-  paste0("🧍‍♂️ ", top$country, " concentre le plus de morts civiles avec ", top$civ_deaths, " décès estimés.")
-})
-
-output$comment_civilians_timeline <- renderText({
-  df <- data_page3() %>%
-    filter(type_of_violence == 3) %>%
-    mutate(month = format(date_start, "%Y-%m")) %>%
-    group_by(month) %>%
-    summarise(civ_deaths = sum(deaths_civilians, na.rm = TRUE)) %>%
-    arrange(desc(civ_deaths)) %>% slice(1)
-  paste0("🗓️ Le mois le plus critique pour les civils est ", df$month[1],
-         " avec ", df$civ_deaths[1], " morts civiles estimées.")
-})
-
-
-
-# 🔹 Bloc 1 – Événements et morts par pays
-
-# Labels explicites pour types de violence
-violence_labels <- c(
-  "1" = "Conflit entre État et groupes armés",
-  "2" = "Conflit entre groupes armés",
-  "3" = "Violence contre civils"
-)
-
-# Bloc dynamique mono/multi pays
-output$bloc_pays_adaptatif <- renderUI({
-  selected <- input$filtre_pays
-  if (length(selected) == 1) {
-    tagList(
-      tags$div(style = "margin-bottom: 20px;"),
-      tags$div(
-        class = "card shadow-sm p-3 mb-4 bg-light rounded",
-        tags$h4(
-          tags$span(icon("magnifying-glass-location", lib = "font-awesome"),
-                    style = "margin-right: 8px; color: #2c3e50;"),
-          paste("Contexte sécuritaire :", selected)
-        ),
-        tags$p(textOutput("contexte_pays_unique"),
-               style = "font-size: 16px; color: #333; font-style: italic; margin-top: 10px;")
-      )
-    )
-  } else {
-    fluidRow(
-      column(6,
-             plotlyOutput("plot_events_country"),
-             tags$p(textOutput("comment_events_country"), style = "font-style: italic; color: #555;")
-      ),
-      column(6,
-             plotlyOutput("plot_deaths_country"),
-             tags$p(textOutput("comment_deaths_country"), style = "font-style: italic; color: #555;")
-      )
-    )
-  }
-})
-
-output$contexte_pays_unique <- renderText({
-  country <- input$filtre_pays
-  if (is.null(country) || length(country) != 1) return(NULL)
-  
-  contextes <- list(
-    "Mali" = paste(
-      "Le Mali est confronté à une grave crise sécuritaire depuis 2012, marquée par l'insurrection de groupes djihadistes dans le nord.",
-      "La région du Liptako-Gourma, partagée avec le Burkina Faso et le Niger, est particulièrement instable.",
-      "Malgré la présence des forces internationales (MINUSMA, Barkhane), les attaques contre les civils et les forces armées persistent, notamment dans le centre du pays.",
-      "Le Mali fait partie de l'Alliance des États du Sahel (AES), qui regroupe des pays en transition politique et en lutte commune contre le terrorisme."
-    ),
-    
-    "Burkina Faso" = paste(
-      "Depuis 2015, le Burkina Faso subit une intensification dramatique des violences liées à des groupes armés islamistes.",
-      "Le nord et l’est du pays, notamment dans la région du Liptako-Gourma, sont devenus des zones de conflits ouverts.",
-      "Les attaques contre les civils, les écoles et les forces de sécurité ont entraîné des déplacements massifs de population.",
-      "Membre de l'Alliance des États du Sahel (AES), le Burkina Faso adopte une politique sécuritaire plus souveraine et coordonnée avec ses voisins Mali et Niger."
-    ),
-    
-    "Niger" = paste(
-      "Le Niger est confronté à une double menace sécuritaire : Boko Haram dans la région de Diffa (sud-est), et les groupes djihadistes affiliés à Al-Qaïda et à l’EI dans l’ouest et le nord.",
-      "La région du Liptako-Gourma, frontalière avec le Mali et le Burkina Faso, est un épicentre de la violence.",
-      "Les attaques contre les villages et les postes militaires y sont fréquentes.",
-      "Le Niger est également membre de l'Alliance des États du Sahel (AES) et joue un rôle central dans la lutte régionale contre le terrorisme."
-    ),
-    
-    "Senegal" = paste(
-      "Le Sénégal demeure relativement stable sur le plan sécuritaire.",
-      "Cependant, la région de la Casamance connaît un conflit séparatiste latent depuis plusieurs décennies.",
-      "Le pays reste attentif aux risques d’expansion des groupes armés depuis le Sahel, notamment à travers ses frontières avec le Mali et la Mauritanie."
-    ),
-    
-    "Togo" = paste(
-      "Le Togo, historiquement stable, fait face depuis 2021 à une recrudescence d’incursions djihadistes dans sa région nord.",
-      "Ces attaques proviennent principalement des groupes opérant au Burkina Faso.",
-      "Le pays renforce sa présence militaire dans la région des Savanes pour contenir cette menace."
-    ),
-    
-    "Ivory" = paste(
-      "La Côte d’Ivoire reste relativement stable mais sous pression croissante dans le nord du pays.",
-      "Depuis 2020, des attaques ont été enregistrées dans les zones frontalières avec le Burkina Faso, notamment contre des postes de sécurité.",
-      "Les autorités ivoiriennes renforcent la sécurité dans le cadre d’une stratégie préventive contre l’expansion du terrorisme sahélien."
-    ),
-    
-    "Benin" = paste(
-      "Le nord du Bénin est touché depuis 2019 par des incursions de groupes armés en provenance du Burkina Faso et du Niger.",
-      "Des attaques ont visé des parcs nationaux, des postes militaires et des villages.",
-      "Le pays développe une coopération renforcée avec ses voisins pour contenir la menace et sécuriser ses frontières."
-    ),
-    
-    "Guinea-Bissau" = paste(
-      "La Guinée-Bissau n'est pas directement affectée par les conflits armés sahéliens.",
-      "Cependant, elle reste exposée à des fragilités internes liées à des crises politiques récurrentes et à des réseaux de criminalité transnationale."
-    )
-  )
-  
-  contextes[[country]] %||% "Aucun contexte spécifique disponible pour ce pays."
+  return(df)
 })
 output$plot_events_country <- renderPlotly({
   df <- data_page3() %>% count(country, name = "events")
